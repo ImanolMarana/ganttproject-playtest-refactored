@@ -1,0 +1,100 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath 'org.openjfx:javafx-plugin:0.1.0'
+    }
+}
+
+apply plugin: 'org.openjfx.javafxplugin'
+
+ext {
+    libDir = 'lib'
+}
+
+configurations {
+    exported
+}
+
+dependencies {
+    exported 'org.slf4j:slf4j-api:2.0.13'
+    implementation 'org.slf4j:slf4j-jdk14:2.0.13'
+    implementation "com.vladsch.flexmark:flexmark-ext-gfm-strikethrough:0.64.+"
+    implementation "com.vladsch.flexmark:flexmark-ext-tables:0.64.+"
+    implementation "com.vladsch.flexmark:flexmark-ext-attributes:0.64.+"
+
+    exported "com.vladsch.flexmark:flexmark-all:0.64.+"
+    exported 'commons-codec:commons-codec:1.+'
+    exported 'commons-io:commons-io:2.+'
+
+    exported "com.googlecode.concurrentlinkedhashmap:concurrentlinkedhashmap-lru:1.4.2"
+    exported "com.evanlennick:retry4j:0.15.0"
+    exported 'com.fasterxml.jackson.core:jackson-core:2.17.0'
+    exported 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    exported 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.0'
+    exported 'com.jgoodies:jgoodies-common:1.8.+'
+    exported "com.jgoodies:jgoodies-looks:2.7.0"
+    exported "com.squareup.okhttp3:okhttp:3.14.9"
+
+    exported "de.jensd:fontawesomefx-commons:9.1.2"
+    exported "de.jensd:fontawesomefx-fontawesome:4.7.0-9.1.2"
+    exported "de.jensd:fontawesomefx-materialicons:2.2.0-9.1.2"
+
+    exported 'net.java.balloontip:balloontip:1.2.4.1'
+    exported "org.apache.commons:commons-lang3:3.14.0"
+
+    exported "org.apache.httpcomponents:httpclient:4.5.14"
+    exported "org.apache.httpcomponents:httpmime:4.5.14"
+    exported "org.apache.poi:poi:5.2.5"
+    exported "org.controlsfx:controlsfx:11.2.1"
+    exported "org.nanohttpd:nanohttpd:2.3.1"
+    exported('org.jdom:jdom') {
+        version {
+            // because milton libraries depend on JDOM 1
+            strictly '1.1.3'
+        }
+    }
+    exported 'org.swinglabs:jxlayer:3.0.4'
+
+    exported fileTree(dir: project.ext.libDir, include: ['*.jar'])
+}
+
+javafx {
+    version = "17"
+    modules = [ "javafx.controls","javafx.swing","javafx.web" ]
+}
+
+def pluginDistDir = new File(rootProject.pluginsDir, project.name)
+task copyPlugin(dependsOn: assemble) {
+    doLast {
+        println ">>> Installing $project.name into $pluginDistDir"
+        copy {
+            into(pluginDistDir)
+            from(fileTree(".")) {
+                include "plugin.xml"
+            }
+        }
+        copy {
+            into(new File(pluginDistDir, "lib"))
+            from(configurations.exported) {
+                include "*.jar"
+                if (!project.hasProperty("withJavafx")) {
+                    exclude "javafx*.jar"
+                }
+                exclude "slf4j*.jar"
+            }
+    	    rename { filename -> filename + ".lib" }
+        }
+        copy {
+            into(new File(rootProject.projectDir, "ganttproject-builder/lib/"))
+            from(configurations.exported) {
+                include "slf4j*.jar"
+            }
+        }
+        println "<<< $project.name"
+    }
+}

@@ -1,0 +1,188 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "gradle.plugin.io.miret.etienne.gradle:sass-gradle-plugin:1.+"
+        classpath 'org.openjfx:javafx-plugin:0.1.0'
+    }
+}
+
+plugins {
+    id "org.jetbrains.kotlin.jvm"
+    id "maven-publish"
+    id "nu.studer.jooq" version "9.0"
+    id "org.jetbrains.kotlin.plugin.serialization" version "$kotlin_version"
+}
+
+apply plugin: 'application'
+apply plugin: 'org.openjfx.javafxplugin'
+apply plugin: 'io.miret.etienne.sass'
+
+ext {
+    libDir = 'lib/core'
+}
+
+javafx {
+    version = "17"
+    modules = [ 'javafx.controls', 'javafx.fxml', 'javafx.swing' ]
+}
+
+configurations {
+    implementation.extendsFrom providedCompile
+}
+
+dependencies {
+    providedCompile project(':biz.ganttproject.core')
+    providedCompile project(path: ':biz.ganttproject.app.libs', configuration: 'exported')
+    providedCompile project(path: ':biz.ganttproject.app.localization')
+
+    api files("lib/core/eclipsito.jar")
+    implementation fileTree(dir: project.ext.libDir, include: ['*.jar'])
+    implementation files('src/main/resources/resources')
+
+    implementation group: 'com.h2database', name: 'h2', version: '2.2.+'
+    implementation 'org.jooq:jooq:3.19.7'
+    jooqGenerator 'org.jooq:jooq-meta-extensions:3.19.7'
+
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3'
+    implementation 'net.harawata:appdirs:1.2.2'
+
+    testImplementation group: 'org.easymock', name: 'easymock', version: '5.+'
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.+'
+
+    testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.+'
+
+//    implementation "de.jensd:fontawesomefx-materialicons:2.2.+"
+}
+
+jooq {
+    configurations {
+        main {
+            generationTool {
+                logging = org.jooq.meta.jaxb.Logging.WARN
+                generator {
+                    database {
+                        name = 'org.jooq.meta.extensions.ddl.DDLDatabase'
+                        properties {
+                            property {
+                                key = 'scripts'
+                                value = 'src/main/resources/resources/sql/init-project-database.sql'
+                            }
+                            property {
+                                key = 'defaultNameCase'
+                                value = 'lower'
+                            }
+                        }
+                    }
+                    target {
+                        packageName = 'biz.ganttproject.storage.db'
+                    }
+                }
+            }
+        }
+    }
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+compileSass {
+    outputDir = project.file("${projectDir}/src/main/resources")
+    doLast {
+        copy {
+            from "${projectDir}/src/main/resources/biz/ganttproject/app/mdfx.css"
+            into "${projectDir}/src/main/resources/com/sandec/mdfx/"
+        }
+    }
+}
+
+processResources.dependsOn('compileSass')
+
+sourceSets {
+    main {
+        resources {
+            srcDirs = ["src/main/java", "src/main/resources"]
+            include "**/*.css", "**/*.properties", "**/*.sql"
+        }
+    }
+
+    main.kotlin.srcDirs += "src/main/java"
+    test.kotlin.srcDirs += "src/test/java"
+}
+
+task copyPlugin(dependsOn: jar) {
+    def pluginDistDir = new File(rootProject.pluginsDir, project.name)
+    doLast {
+        println ">>> ------------ Installing $project.name into $pluginDistDir ------------"
+        copy {
+            into(rootProject.distBinDir)
+            from(fileTree("lib/core")) {
+                include "eclipsito.jar"
+            }
+            from(fileTree("src/main/resources")) {
+                include 'logging.properties'
+            }
+        }
+        copy {
+            into(pluginDistDir)
+            from(fileTree(".")) {
+                include "plugin.xml"
+            }
+            from(fileTree("src/main/resources")) {
+                include "resources/**.ttf"
+                include "resources/**.properties"
+                include "resources/calendar/**"
+                include "resources/fonts/**"
+                include "resources/icons/**"
+                include "resources/language/**"
+                include "resources/sql/**"
+                include "resources/xslfo/**"
+                include "resources/xslt/**"
+            }
+        }
+        installLibs(jar, project)
+        delete fileTree(pluginDistDir).matching {
+            include "**/eclipsito.jar.lib"
+        }
+        println "<<< $project.name"
+    }
+}
+
+mainClassName = "net.sourceforge.ganttproject.AppKt"
+application {
+    applicationDefaultJvmArgs = project.ext.javaExportOptions + ["-Dorg.jooq.no-logo=true"] + (project.hasProperty("gpcloud") ? ["-Dgpcloud=${project.property("gpcloud")}"] : [])
+}
+test {
+    useJUnitPlatform()
+    testLogging {
+        exceptionFormat = 'full'
+    }
+}
+
+addPublishing(project)
+publishing {
+    publications {
+        core(MavenPublication) {
+            artifactId = 'ganttproject'
+            artifact jar
+        }
+    }
+}
+
+compileKotlin.dependsOn generateJooq
+compileKotlin.dependsOn compileSass
+compileJava.dependsOn compileSass
+

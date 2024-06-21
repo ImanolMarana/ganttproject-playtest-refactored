@@ -1,0 +1,59 @@
+// import com.sun.org.apache.xalan.internal.xsltc.compiler.Copy
+
+plugins {
+    id "org.jetbrains.kotlin.jvm"
+    id "maven-publish"
+}
+configurations {
+    implementation.extendsFrom providedCompile
+}
+
+dependencies {
+    providedCompile project(path: ':biz.ganttproject.app.libs', configuration: 'exported')
+    api "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    api 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.+'
+    api 'org.jetbrains.kotlinx:kotlinx-coroutines-javafx:1.8.+'
+    api "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
+    api "com.google.guava:guava:31.+"
+
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.0'
+
+
+    testImplementation(
+        'org.junit.jupiter:junit-jupiter-api:5.+',
+        'org.mockito:mockito-core:5.11.0',
+        'com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0'
+    )
+    testRuntimeOnly(
+        'org.junit.jupiter:junit-jupiter-engine:5.+'
+    )
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+compileTestKotlin {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+task copyPlugin(dependsOn: jar) {
+    install(copyPlugin, jar, project)
+}
+
+addPublishing(project)
+publishing {
+    publications {
+        core(MavenPublication) {
+            artifactId = 'biz.ganttproject.core'
+            artifact jar
+        }
+    }
+}

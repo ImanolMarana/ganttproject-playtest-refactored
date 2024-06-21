@@ -38,7 +38,7 @@ dependencies {
     exported 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.0'
     exported 'com.jgoodies:jgoodies-common:1.8.+'
     exported "com.jgoodies:jgoodies-looks:2.7.0"
-    exported "com.squareup.okhttp3:okhttp:3.14.9"
+    exported "com.squareup.okhttp3:okhttp:4.12.0"
 
     exported "de.jensd:fontawesomefx-commons:9.1.2"
     exported "de.jensd:fontawesomefx-fontawesome:4.7.0-9.1.2"
